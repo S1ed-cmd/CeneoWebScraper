@@ -1,111 +1,162 @@
-
 import os
 import json
-import requests
-import numpy as np
 import pandas as pd
+import numpy as np
+import requests
 from bs4 import BeautifulSoup
-from matplotlib import pyplot as plt
 from config import headers
+from app.utils import extract_data, translate_data
 
 class Product:
-
-    def __init__(self, product_id, product_name, opinions, stats):
+    def __init__(self, product_id, product_name="", opinions=[], stats={}):
         self.product_id = product_id
         self.product_name = product_name
         self.opinions = opinions
         self.stats = stats
 
     def __str__(self):
-        return f"product_id: {self.product_id}\nproduct_name: {self.product_name}\nstats:"+json.dumps(self.stats, indent=4, ensure_ascii=False)+"\nopinions"+"\n\n".join([str(opinion) for opinion in self.opinions])
-
-    def __repr__(self):
-        return f"Product(product_id={self.product_id}, product_name={self.product_name}, opinions=["+", ".join([repr(opinion) for opinion in self.opinions])+f"], stats={self.stats})"
-
-    def get_link(self):
-        return f"https://www.ceneo.pl/{self.product_id}#tab=reviews"
+        return f"Product_id: {self.product_id}\nProduct_name: {self.product_name}\nOpinions: "+"\n\n".join([str(opinion) for opinion in self.opinions])+"\n"+json.dumps(self.stats, indent=4, ensure_ascii=False)+"\n"
     
+    def __repr__(self):
+        return f"Product(product_id={self.product_id}, product_name={self.product_name}, opinions=["+",".join(repr(opinion) for opinion in self.opinions)+f"], stats={self.stats})"
+
     def extract_name(self):
-        response = requests.get(self.get_link(), headers = headers)
-        page_dom = BeautifulSoup(response.text, 'html.parser')
-        self.product_name = page_dom.select_one("h1")
+        next_page = f"https://www.ceneo.pl/{self.product_id}#tab=reviews"
+        response = requests.get(next_page, headers = headers)
+        if response.status_code == 200:
+            page_dom = BeautifulSoup(response.text, 'html.parser')
+            self.product_name = extract_data(page_dom, "h1")
+            opinions_count = extract_data(page_dom, "a.product-review__link > span")
+            return bool(opinions_count)
+        else:
+            return False
+
+    def extract_opinions(self):
+        url = f"https://www.ceneo.pl/{self.product_id}#tab=reviews"
+        while next_page:
+            response = requests.get(url, headers = headers)
+            if response.status_code == 200:
+                print(url)
+                page_dom = BeautifulSoup(response.text, 'html.parser')
+                opinions = page_dom.select("div.js_product-review:not(.user-post--highlight)")
+                print(len(opinions))
+                for opinion in opinions:
+                    single_opinion = Opinion()
+                    single_opinion.extract(opinion).translate().transform()
+                    self.opinions.append(single_opinion)
+                try:
+                    url = "https://www.ceneo.pl" + extract_data(page_dom,"a.pagination__next","href")
+                except TypeError:
+                    url = None
+
+    def save_opinions(self):
+        if not os.path.exists("./app/data"):
+            os.mkdir("./app/data")
+        if not os.path.exists("./app/data/opinions"):
+            os.mkdir("./app/data/opinions")
+        with open(f".app/data/opinions/{self.product_id}.json", "w", encoding="UTF-8") as jf:
+            json.dump([opinion.transform_to_dict() for opinion in self.opinions], jf, ensure_ascii=False, indent=4)
+
+    def save_info(self):
+        if not os.path.exists("./app/data"):
+            os.mkdir("./app/data")
+        if not os.path.exists("./app/data/products"):
+            os.mkdir("./app/data/products")
+        with open(f".app/data/products/{self.product_id}.json", "w", encoding="UTF-8") as jf:
+            json.dump(self.transform_to_dict(), jf, ensure_ascii=False, indent=4)
 
     def opinions_to_dict(self):
         return [opinion.to_dict() for opinion in self.opinions]
 
-    def calculate_stats(self):
-        opinions = pd.DataFrame.from_dict(self.opinions_to_dict())
+    def info_to_dict(self):
+        return {
+            'product_id': self.product_id,
+            'product_name': self.product_name,
+            'stats': self.stats
+        }
+    
+    def import_opinions(self):
+        with open(f".app/data/opinions/{self.product_id}.json", "r", encoding="UTF-8") as jf:
+            opinions = json.load(jf)
+        for opinion in opinions:
+            single_opinion = Opinion()
+            for key, value in opinion.items():
+                setattr(single_opinion, key, value)
+            self.opinions.append(single_opinion)
+
+    def import_info(self):
+        with open(f".app/data/products/{self.product_id}.json", "r", encoding="UTF-8") as jf:
+            info = json.load(jf)
+        self.product_name = info['product_name']
+        self.stats = info['stats']
+
+    def analyze(self):
+        opinions = pd.DataFrame.from_dict([opinion.transform_to_dict() for opinion in self.opinions])
         self.stats["opinions_count"] = opinions.shape[0]
         self.stats["pros_count"] = opinions.pros_pl.astype(bool).sum()
         self.stats["cons_count"] = opinions.cons_pl.astype(bool).sum()
         self.stats["pros_cons_count"] = opinions.apply(lambda o: bool(o.pros_pl) and bool(o.cons_pl), axis=1).sum()
-        self.stats["average_stars"] = opinions.stars.mean()
-        self.stats["pros"] = opinions.pros_en.explode().value_counts()
-        self.stats["cons"] = opinions.cons_en.explode().value_counts()
-        self.stats["recomendations"] = opinions.recommend.value_counts(dropna=False).reindex([True, False, np.nan], fill_value=0)
-        self.stats["stars"] = opinions.stars.value_counts().reindex(list(np.arange(0.5,5.5,0.5)), fill_value=0)
-
-    def generate_charts(self):
-        if not os.path.exists("./app/static/pie_charts"):
-            os.mkdir("./app/static/pie_charts")
-        if not os.path.exists("./app/static/bar_charts"):
-            os.mkdir("./app/static/bar_charts")
-        self.stats['recomendations'].plot.pie(
-            label = "",
-            labels = ["Recommend", "Not recommend", "No opinion"],
-            colors = ['forestgreen', 'crimson', 'steelblue'],
-            autopct = lambda r: f"{r:.1f}%" if r>0 else ""
-            )
-        plt.title(f"Recommendations for product: {self.product_id}\nTotal number of opinions: {self.stats['opinions_count']}")
-        plt.savefig(f"./app/static/pie_charts/{self.product_id}.png")
-        plt.close()
-
-        plt.figure(figsize=(7,6))
-        ax = self.stats['stars'].plot.bar(
-            color = ["forestgreen" if s>3.5 else "crimson" if s<3 else "steelblue" for s in self.stats['stars'].index]
-        )
-        plt.bar_label(container=ax.containers[0])
-        plt.xlabel("Number of stars")
-        plt.ylabel("Number of opinions")
-        plt.title(f"Number of opinions about product {self.product_id}\nwith particular number of stars\nTotal number of opinions: {self.stats['opinions_count']}")
-        plt.xticks(rotation=0)
-        plt.savefig(f"./app/static/bar_charts/{self.product_id}.png")
-        plt.close()
+        self.stats["average_rate"] = opinions.stars.mean()
+        self.stats["pros"] = opinions.pros_en.explode().value_counts().to_dict()
+        self.stats["cons"] = opinions.cons_en.explode().value_counts().to_dict()
+        self.stats["recommendations"] = opinions.recommendation.value_counts(dropna=False).reindex([False, True, np.nan], fill_value=0).to_dict()
+        self.stats["stars"] = opinions.stars.value_counts().reindex(list(np.arange(0,5.5,0.5)), fill_value=0).to_dict()
 
 class Opinion:
-
     selectors = {
-        'opinion_id':(None, "data-entry-id"),
-        'author':("span.user-post__author-name",),
-        'recommend':("span.user-post__author-recomendation > em",),
-        'stars':("span.user-post__score-count",),
-        'content_pl':("div.user-post__text",),
-        'pros_pl':("div.review-feature__item--positive", None, True),
-        'cons_pl':("div.review-feature__item--negative", None, True),
-        'up_votes':("button.vote-yes","data-total-vote"),
-        'down_votes':("button.vote-no","data-total-vote"),
-        'published':("span.user-post__published > time:nth-child(1)","datetime"),
-        'purchased':("span.user-post__published > time:nth-child(2)","datetime")
+        "opinion_id": (None, "data-entry-id"),
+        "author": ("span.user-post__author-name",),
+        "recommendation": ("span.user-post__author-recomendation > em",),
+        "stars": ("span.user-post__score-count",),
+        "content_pl": ("div.user-post__text",),
+        "pros_pl": ("div.review-feature__item--positive", None, True),
+        "cons_pl": ("div.review-feature__item--negative", None, True),
+        "vote_yes": ("button.vote-yes","data-total-vote"),
+        "vote_no": ("button.vote-no","data-total-vote"),
+        "published": ("span.user-post__published > time:nth-child(1)","datetime"),
+        "purchased": ("span.user-post__published > time:nth-child(2)","datetime"),
+        "content_en" : ()
+        "pros_en" : ()
+        "cons_en" : ()
     }
 
-    def __init__(self, opinion_id, author, recommend, stars, content, pros, cons, up_votes, down_votes, published, purchased):
+    def __init__(self, opinion_id="", author="", recommendation=False, stars=0.0, content="", pros=[], cons=[], vote_yes=0, vote_no=0, published=False, purchased=False,pros_pl=[],cons_ps=[]):
         self.opinion_id = opinion_id
         self.author = author
-        self.recommend = recommend
+        self.recommendation = recommendation
         self.stars = stars
-        self.content = content
-        self.pros = pros
-        self.cons = cons
-        self.up_votes = up_votes
-        self.down_votes = down_votes
+        self.content_pl = content
+        self.pros_pl = pros
+        self.cons_pl = cons
+        self.vote_yes = vote_yes
+        self.vote_no = vote_no
         self.published = published
         self.purchased = purchased
+        self.content_en = content_en
+        self.pros_en = pros_en
+        self.cons_en = pros_en
     
     def __str__(self):
-        return "\n".join([f"{key}: {getattr(self,key)}" for key in self.selectors.keys()])
+        return ("\n".join([f"{key}: {getattr(self, key)}" for key in self.selectors.keys()]))+f"content_en: {self.content_en}\npros_en: {self.pros_en}\ncons_en: {self.cons_en}"
     
     def __repr__(self):
-        return "Opinion("+", ".join([f"{key}={getattr(self,key)}" for key in self.selectors.keys()])+")"
+        return "Opinion("+", ".join([f"{key}={str(getattr(self, key))}" for key in self.selectors.keys()])+")"
     
-    def to_dict(self):
-        return {key: getattr(self,key) for key in self.selectors.keys()}
+    def extract(self, opinion_tag):
+        for key, value in self.selectors.items():
+            setattr(self, key, extract_data(opinion_tag, *value))
+        return self
+
+    def translate(self):
+        self.content_en = translate_data(self.content_pl)
+        self.pros_en = [translate_data(pros) for pros in self.pros_pl]
+        self.cons_en = [translate_data(cons) for cons in self.cons_pl]
+        return= self
+
+
+     def transform(self):
+        self.recommend = True if self.recommend=='Polecam' else False if  self.recommend=="Nie polecam" else None
+        self.stars = float(self.stars.split("/")[0].replace(",", "."))
+        self.vote_yes = int(self.vote_yes)
+        self.vote_no = int(self.vote_no)
+        return self

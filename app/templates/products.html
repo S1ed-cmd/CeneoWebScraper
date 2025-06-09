@@ -1,5 +1,23 @@
-{% extends 'base.html' %}
-{% block title %}{% endblock %}
-{% block content %}
+{% extends 'base.html' %} {% block title %}{% endblock %} {% block content %} {%
+    for product in products %}
+     <tr>
+        <td><h3>{{ product.product_name }} (ID: {{ product.product_id }})</h3></td>
 
-{% endblock %}
+     </tr>
+        <h3>{{ product.product_name }} (ID: {{ product.product_id }})</h3>
+        <p>Number of opinions: {{product.stats["opinions_count"]}}</p>
+        <p>
+            Number of opinions in which disadvantages have been listed:
+            {{product.stats["cons_count"]}}
+        </p>
+        <p>
+            Number of opinions in which advantages have been listed:
+            {{product.stats["pros_count"]}}
+        </p>
+        <p>Average score {{product.stats["average_stars"]}}</p>
+        <button>download .csv</button>
+        <button>download .xlsx</button>
+        <button>download .json</button>
+        <button>download</button>
+   
+    {%endfor%} {% endblock %}

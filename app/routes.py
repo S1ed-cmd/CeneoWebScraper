@@ -1,3 +1,4 @@
+import os
 from flask import render_template, redirect, request, url_for
 from app import app
 from app.forms import ProductIdForm
@@ -41,7 +42,16 @@ def charts(product_id):
 
 @app.route("/products")
 def products():
-    return render_template("products.html")
+    product_list = []
+    products_dir = os.path.join("app", "data", "products")
+    if not os.path.exists(products_dir):
+        return "Products directory not found", 404
+    for fn in os.listdir(products_dir):
+        fn = fn.split(".")[0]
+        product = Product(product_id=fn)
+        product.read_info()
+        product_list.append(product)
+    return render_template("products.html", products=product_list)
 
 @app.route("/about")
 def about():

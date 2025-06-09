@@ -1,3 +1,4 @@
+import os
 import json
 import requests
 import numpy as np
@@ -110,6 +111,13 @@ class Product:
         create_if_not_exists("./app/data/products")
         with open(f"./app/data/products/{self.product_id}.json", "w", encoding="UTF-8") as jf:
             json.dump(self.info_to_dict(), jf, indent=4, ensure_ascii=False)
+            
+    def read_info(self):
+        path = os.path.join("app", "data", "products", f"{self.product_id}.json")
+        with open(path, "r", encoding="utf-8") as jf:
+            info = json.load(jf)
+        self.product_name = info["product_name"]
+        self.stats = info["stats"]
 
 class Opinion:
 
@@ -172,3 +180,5 @@ class Opinion:
         self.up_votes = int(self.up_votes)
         self.down_votes = int(self.down_votes)
         return self
+
+    

@@ -174,3 +174,7 @@ cython_debug/
 .pypirc
 
 # ceneowebscraper
+
+ app/data
+ app/static/bar_charts
+ app/static/pie_charts

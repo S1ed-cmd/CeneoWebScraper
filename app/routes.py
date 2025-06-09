@@ -20,6 +20,7 @@ def extract():
         product = Product(product_id)
         product.extract_name()
         product.extract_opinions()
+        print(product)
         product.calculate_stats()
         product.generate_charts()
         print(product)

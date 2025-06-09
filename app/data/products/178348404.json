@@ -1,0 +1,35 @@
+{
+    "product_id": "178348404",
+    "product_name": "PHILIPS Series 5000 Dual Basket NA550/00",
+    "stats": {
+        "opinions_count": 4,
+        "pros_count": 3,
+        "cons_count": 0,
+        "pros_cons_count": 0,
+        "average_stars": 4.75,
+        "pros": {
+            "workmanship": 3,
+            "capacity": 3,
+            "heating speed": 3,
+            "ease of cleaning": 2
+        },
+        "cons": {},
+        "recommendations": {
+            "true": 4,
+            "false": 0,
+            "NaN": 0
+        },
+        "stars": {
+            "0.5": 0,
+            "1.0": 0,
+            "1.5": 0,
+            "2.0": 0,
+            "2.5": 0,
+            "3.0": 0,
+            "3.5": 0,
+            "4.0": 1,
+            "4.5": 0,
+            "5.0": 3
+        }
+    }
+}

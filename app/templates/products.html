@@ -1,23 +1,81 @@
-{% extends 'base.html' %} {% block title %}{% endblock %} {% block content %} {%
-    for product in products %}
-     <tr>
-        <td><h3>{{ product.product_name }} (ID: {{ product.product_id }})</h3></td>
+{% extends 'base.html' %}
 
-     </tr>
-        <h3>{{ product.product_name }} (ID: {{ product.product_id }})</h3>
-        <p>Number of opinions: {{product.stats["opinions_count"]}}</p>
-        <p>
-            Number of opinions in which disadvantages have been listed:
-            {{product.stats["cons_count"]}}
-        </p>
-        <p>
-            Number of opinions in which advantages have been listed:
-            {{product.stats["pros_count"]}}
-        </p>
-        <p>Average score {{product.stats["average_stars"]}}</p>
-        <button>download .csv</button>
-        <button>download .xlsx</button>
-        <button>download .json</button>
-        <button>download</button>
+{% block title %}
+    Product Stats
+{% endblock %}
+
+{% block content %}
+    {% for product in products %}
+    <head>
+        <style>
+            th, td {
+                padding: 12px;
+                border: 1px solid #606060;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        
+
+        <table >
+           <tr>
+          <h4> 
+             <a href="https://www.ceneo.pl/{{ product.product_id }}" style="font-weight: bold; text-decoration: none; color: black;"  target="_blank">
+                {{ product.product_name }} (ID: {{ product.product_id }})
+            </a>
+        </h4> 
+
+           </tr>
+            <tr>
+                <th>Number of opinions:</th>
+                <td>{{ product.stats["opinions_count"] }}</td>
+            </tr>
+            <tr>
+                <th>Number of opinions with disadvantages:</th>
+                <td>{{ product.stats["cons_count"] }}</td>
+            </tr>
+            <tr>
+                <th>Number of opinions with advantages:</th>
+                <td>{{ product.stats["pros_count"] }}</td>
+            </tr>
+            <tr>
+                <th>Average score:</th>
+                <td>{{ product.stats["average_stars"] }}</td>
+            </tr>
+            <tr>
+                <th>Download files:</th>
+                <td>
+                    <a href="opinions/{{ product.product_id }}.csv" download>
+                    <button>download .csv</button>
+                    </a>
+                    <a href="opinions/{{ product.product_id }}.xlsx" download>
+                        <button>download .xlsx</button>
+                     </a>
+                    
+                    <a href="opinions/{{ product.product_id }}.json" download>
+                        <button>download .json</button>
+                    </a>
+                </td>
+            </tr>
+        </table>
+    </body>
+    {% endfor %}
+{% endblock %}
+        
+         
+    
+           
+       
+  
+
+
+
+    
    
-    {%endfor%} {% endblock %}
+    
+   
+   
+    
+    
+   
